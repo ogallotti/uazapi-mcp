@@ -7,6 +7,7 @@ import { callUazapi, pick, prune, UazapiError, type UazapiCredentials } from './
 export type ToolProfile = 'core' | 'all';
 
 const MAX_TEXT = 60_000;
+const MAX_STRING = 4_000;
 
 const chatId = z
   .string()
@@ -88,12 +89,35 @@ function compactChat(c: Obj) {
   };
 }
 
+function clip(value: unknown): unknown {
+  if (typeof value === 'string') return value.length > MAX_STRING ? `${value.slice(0, MAX_STRING)}…[truncado]` : value;
+  if (Array.isArray(value)) return value.map(clip);
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, clip(v)]));
+}
+
+/** Drops trailing list items until the payload fits, so content and structuredContent stay identical and bounded. */
+function fitList(out: Obj, key: string): Obj {
+  const items = [...(out[key] as unknown[])];
+  let fitted: Obj = { ...out, [key]: items };
+  while (items.length > 1 && JSON.stringify(fitted).length > MAX_TEXT) {
+    items.pop();
+    fitted = { ...out, [key]: items, truncated: `Lista cortada em ${items.length} itens pelo tamanho; reduza limit.` };
+  }
+  return fitted;
+}
+
 function textResult(value: unknown, structured?: Obj): CallToolResult {
   let text = typeof value === 'string' ? value : JSON.stringify(value);
   if (text.length > MAX_TEXT) {
     text = `${text.slice(0, MAX_TEXT)}\n…[resposta truncada em ${MAX_TEXT} caracteres; use limit/offset para paginar]`;
   }
   return { content: [{ type: 'text', text }], ...(structured ? { structuredContent: structured } : {}) };
+}
+
+function listResult(out: Obj, key: string): CallToolResult {
+  const fitted = fitList(clip(out) as Obj, key);
+  return textResult(fitted, fitted);
 }
 
 function errorResult(err: unknown): CallToolResult {
@@ -259,7 +283,7 @@ export function registerTools(server: McpServer, creds: UazapiCredentials | unde
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
     },
     guard(async (args) => {
-      const out = compactMessage(await call('sendText', args));
+      const out = clip(compactMessage(await call('sendText', args))) as Obj;
       return textResult(out, out);
     }),
   );
@@ -286,7 +310,7 @@ export function registerTools(server: McpServer, creds: UazapiCredentials | unde
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
     },
     guard(async (args) => {
-      const out = compactMessage(await call('sendMedia', args));
+      const out = clip(compactMessage(await call('sendMedia', args))) as Obj;
       return textResult(out, out);
     }),
   );
@@ -307,12 +331,12 @@ export function registerTools(server: McpServer, creds: UazapiCredentials | unde
         limit: z.number().int().min(1).max(200).default(20),
         offset: z.number().int().min(0).default(0),
       }),
-      outputSchema: z.object({ chats: z.array(chatOut), pagination }),
+      outputSchema: z.looseObject({ chats: z.array(chatOut), pagination }),
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: true },
     },
     guard(async (a) => {
       const body: Obj = { compact: true, sort: '-wa_lastMsgTimestamp', limit: a.limit, offset: a.offset };
-      if (a.name) body.wa_contactName = `~${a.name}`;
+      if (a.name) body.name = `~${a.name}`;
       if (a.chatid) body.wa_chatid = `~${a.chatid}`;
       if (a.unread_only) body.wa_unreadCount = '>0';
       if (a.awaiting_reply !== undefined) body.lead_awaitingReply = a.awaiting_reply;
@@ -323,7 +347,7 @@ export function registerTools(server: McpServer, creds: UazapiCredentials | unde
         chats: ((r.chats ?? []) as Obj[]).map(compactChat),
         pagination: pick((r.pagination ?? {}) as Obj, ['totalRecords', 'hasMore', 'nextOffset']),
       };
-      return textResult(out, out);
+      return listResult(out, 'chats');
     }),
   );
 
@@ -338,7 +362,7 @@ export function registerTools(server: McpServer, creds: UazapiCredentials | unde
         limit: z.number().int().min(1).max(200).default(20),
         offset: z.number().int().min(0).default(0).describe('0 = mais recentes. Use pagination.nextOffset para continuar.'),
       }),
-      outputSchema: z.object({ messages: z.array(messageOut), pagination }),
+      outputSchema: z.looseObject({ messages: z.array(messageOut), pagination }),
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: true },
     },
     guard(async (a) => {
@@ -347,7 +371,7 @@ export function registerTools(server: McpServer, creds: UazapiCredentials | unde
         messages: ((r.messages ?? []) as Obj[]).map(compactMessage),
         pagination: pick((r.pagination ?? {}) as Obj, ['hasMore', 'nextOffset']),
       };
-      return textResult(out, out);
+      return listResult(out, 'messages');
     }),
   );
 

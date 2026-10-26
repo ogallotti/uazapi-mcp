@@ -33,6 +33,8 @@ export async function callUazapi(creds: UazapiCredentials, input: CallInput): Pr
     method: input.method,
     headers: { token: creds.token, accept: 'application/json', 'content-type': 'application/json' },
     body: input.body === undefined || input.method === 'GET' ? undefined : JSON.stringify(input.body),
+    // A followed redirect would carry the token header to a host outside the allowlist.
+    redirect: 'manual',
   };
 
   // Only reads are retried: a timed-out send may already have been delivered.
@@ -44,21 +46,23 @@ export async function callUazapi(creds: UazapiCredentials, input: CallInput): Pr
     try {
       parsed = text ? JSON.parse(text) : null;
     } catch {}
-    if (res.ok) return redact(parsed);
+    if (res.status >= 300 && res.status < 400) throw new UazapiError(res.status, 'redirecionamento recusado');
+    if (res.ok) return redact(parsed, creds.token);
     const retryable = res.status === 429 || res.status >= 500;
-    if (!retryable || attempt >= attempts) throw new UazapiError(res.status, redact(parsed));
+    if (!retryable || attempt >= attempts) throw new UazapiError(res.status, redact(parsed, creds.token));
     const retryAfter = Number(res.headers.get('retry-after'));
     const waitMs = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : 2 ** attempt * 250;
     await new Promise((r) => setTimeout(r, Math.min(waitMs, 5000) + Math.random() * 200));
   }
 }
 
-export function redact(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(redact);
+export function redact(value: unknown, token: string): unknown {
+  if (typeof value === 'string') return value.replaceAll(token, '[redacted]');
+  if (Array.isArray(value)) return value.map((v) => redact(v, token));
   if (!value || typeof value !== 'object') return value;
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(value)) {
-    out[k] = SECRET_KEYS.has(k) && typeof v === 'string' && v ? '[redacted]' : redact(v);
+    out[k] = SECRET_KEYS.has(k) && typeof v === 'string' && v ? '[redacted]' : redact(v, token);
   }
   return out;
 }

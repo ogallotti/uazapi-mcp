@@ -63,7 +63,11 @@ export function buildRequest(op: Operation, args: Record<string, unknown>) {
   const query: Record<string, unknown> = {};
   const body: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(args)) {
-    if (op.pathParams.includes(k)) path = path.replace(`{${k}}`, encodeURIComponent(String(v)));
+    if (op.pathParams.includes(k)) {
+      const segment = String(v);
+      if (!segment || segment === '.' || segment === '..') throw new Error(`Valor inválido para ${k}`);
+      path = path.replace(`{${k}}`, encodeURIComponent(segment));
+    }
     else if (op.queryParams.includes(k)) query[k] = v;
     else body[k] = v;
   }

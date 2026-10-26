@@ -66,6 +66,11 @@ const raw = await fetch(base, {
 }).then((r) => r.json());
 check('raw 2026-07-28 tools/list is cacheable', raw.result?.ttlMs === 3_600_000 && raw.result?.cacheScope === 'public', JSON.stringify({ ttlMs: raw.result?.ttlMs, cacheScope: raw.result?.cacheScope, resultType: raw.result?.resultType, error: raw.error }));
 
+const fake = await run('fake-token', ModernClient, ModernTransport, base, { authorization: 'Bearer fake' });
+const dots = await fake.client.callTool({ name: 'call_operation', arguments: { operation: 'deleteQuickReply', arguments: { id: '..' } } });
+check('path traversal in path params is rejected', dots.isError === true && text(dots).includes('Valor inválido'), text(dots));
+await fake.client.close();
+
 const all = await run('all', ModernClient, ModernTransport, `${base}?tools=all`, {});
 const allTools = (await all.client.listTools()).tools;
 check('tools=all lists every operation', allTools.length > 130, `${allTools.length} tools`);
