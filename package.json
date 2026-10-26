@@ -1,0 +1,26 @@
+{
+  "name": "uazapi-mcp",
+  "version": "1.0.0",
+  "description": "MCP server para operar uma instância Uazapi (WhatsApp)",
+  "scripts": {
+    "catalog": "node scripts/build-catalog.mjs",
+    "typecheck": "tsc",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "smoke": "node scripts/smoke.mjs"
+  },
+  "license": "UNLICENSED",
+  "type": "module",
+  "dependencies": {
+    "@modelcontextprotocol/server": "^2.4.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261026.1",
+    "@modelcontextprotocol/client": "^2.4.0",
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "typescript": "^7.0.2",
+    "wrangler": "^4.153.0"
+  },
+  "private": true
+}
