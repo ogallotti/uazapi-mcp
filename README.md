@@ -3,12 +3,12 @@
 Servidor MCP remoto para operar **uma instância** Uazapi (WhatsApp) no dia a dia: uma instância, uma conexão MCP. A gestão do servidor Uazapi (criar instâncias, admintoken, webhooks globais) fica para outro servidor MCP.
 
 - Spec MCP **2026-07-28** (stateless, sem sessão, `tools/list` cacheável) com fallback automático para clientes 2025 (Composio, Executor, Claude, Cursor).
-- Roda em Cloudflare Workers. Não guarda nada: o token chega a cada request e é repassado ao Uazapi.
+- Roda em Cloudflare Workers, publicado em `https://uazapi.sling.digital` (custom domain; `workers.dev` desligado). Não guarda nada: o token chega a cada request e é repassado ao Uazapi.
 - Catálogo gerado do OpenAPI oficial (`docs.uazapi.com/openapi-bundled.json`), travado pelo `contractSha256` do `release.json`.
 
 ## Conectar
 
-Endpoint: `https://<worker>/<subdominio>/mcp`, onde `<subdominio>` é a parte antes de `.uazapi.com` na Server URL da instância.
+Endpoint: `https://uazapi.sling.digital/<subdominio>/mcp`, onde `<subdominio>` é a parte antes de `.uazapi.com` na Server URL da instância.
 
 Token da instância, em um destes headers:
 
@@ -29,7 +29,7 @@ curl -X POST https://backend.composio.dev/api/v3.1/custom/toolkits/upsert \
     "slug": "UAZAPI",
     "toolkit_config": {
       "name": "Uazapi WhatsApp",
-      "app_url": "https://<worker>/<subdominio>/mcp?tools=all",
+      "app_url": "https://uazapi.sling.digital/<subdominio>/mcp?tools=all",
       "auth_schemes": [{ "mode": "API_KEY", "headers": { "Authorization": "Bearer {{generic_api_key}}" } }]
     }
   }'
@@ -39,12 +39,12 @@ Cada instância vira uma conta conectada do toolkit, com o próprio token como `
 
 ### Executor
 
-Custom app → MCP → URL `https://<worker>/<subdominio>/mcp` e header `Authorization: Bearer <token>`. O Executor também faz busca e code mode; tanto o perfil padrão quanto `?tools=all` funcionam.
+Custom app → MCP → URL `https://uazapi.sling.digital/<subdominio>/mcp` e header `Authorization: Bearer <token>`. O Executor também faz busca e code mode; tanto o perfil padrão quanto `?tools=all` funcionam.
 
 ### Claude Code / outros clientes
 
 ```bash
-claude mcp add --transport http uazapi https://<worker>/<subdominio>/mcp --header "Authorization: Bearer <token>"
+claude mcp add --transport http uazapi https://uazapi.sling.digital/<subdominio>/mcp --header "Authorization: Bearer <token>"
 ```
 
 ## Tools
