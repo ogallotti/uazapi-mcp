@@ -22,6 +22,14 @@ Alternativa ao caminho: `POST /mcp` com header `x-uazapi-server: <subdominio>` o
 
 ### Composio (Custom MCP)
 
+Pelo painel (Add Custom MCP):
+
+- **MCP server URL:** `https://uazapi.sling.digital/<subdominio>/mcp` (acrescente `?tools=all` para expor as 136 tools granulares; Composio já faz busca de tools).
+- **Authentication:** API key; em Advanced settings, **Header name** `Authorization` e **Header prefix** `Bearer`.
+- Na tela de conexão da conta, cole **só o token da instância** (não o admintoken, sem `Bearer`).
+
+Pela API, o header é um modelo com `{{generic_api_key}}`:
+
 ```bash
 curl -X POST https://backend.composio.dev/api/v3.1/custom/toolkits/upsert \
   -H "x-api-key: $COMPOSIO_API_KEY" -H "Content-Type: application/json" \
@@ -35,7 +43,7 @@ curl -X POST https://backend.composio.dev/api/v3.1/custom/toolkits/upsert \
   }'
 ```
 
-Cada instância vira uma conta conectada do toolkit, com o próprio token como `generic_api_key`. Use `?tools=all`: Composio já faz busca de tools, então ele aproveita melhor as 136 tools granulares.
+Cada instância vira uma conta conectada do toolkit, com o próprio token. Para conferir: chame `whatsapp_status`; `401 Invalid token` quer dizer token errado para aquele subdomínio.
 
 ### Executor
 

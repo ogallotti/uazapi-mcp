@@ -31,8 +31,8 @@ function resolveBaseUrl(server: string | null, env: Env): string | undefined {
 
 function resolveCredentials(request: Request, env: Env): UazapiCredentials | undefined {
   const h = request.headers;
-  // Clients that template "Bearer {{key}}" often get "Bearer <token>" pasted as the key.
-  const token = (h.get('token') ?? h.get('x-uazapi-token') ?? h.get('authorization'))?.replace(/^(\s*Bearer\s+)+/i, '').trim();
+  // Tolerates a missing space or a pasted "Bearer <token>" behind a client-added prefix.
+  const token = (h.get('token') ?? h.get('x-uazapi-token') ?? h.get('authorization'))?.replace(/^(\s*Bearer\s*)+/i, '').trim();
   const pathServer = new URL(request.url).pathname.match(/^\/([^/]+)\/mcp\/?$/)?.[1] ?? null;
   const baseUrl = resolveBaseUrl(h.get('x-uazapi-server') ?? pathServer, env);
   return token && baseUrl ? { token, baseUrl } : undefined;
