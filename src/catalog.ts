@@ -1,4 +1,4 @@
-import data from './catalog.json';
+import data from './catalog.json' with { type: 'json' };
 
 export interface Operation {
   id: string;

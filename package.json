@@ -1,7 +1,8 @@
 {
   "name": "uazapi-mcp",
-  "version": "1.0.0",
+  "version": "0.2.0",
   "description": "MCP server para operar uma instância Uazapi (WhatsApp)",
+  "repository": "github:ogallotti/uazapi-mcp",
   "scripts": {
     "catalog": "node scripts/build-catalog.mjs",
     "typecheck": "tsc",
@@ -9,7 +10,7 @@
     "deploy": "wrangler deploy",
     "smoke": "node scripts/smoke.mjs"
   },
-  "license": "UNLICENSED",
+  "license": "MIT",
   "type": "module",
   "dependencies": {
     "@modelcontextprotocol/server": "^2.4.0",

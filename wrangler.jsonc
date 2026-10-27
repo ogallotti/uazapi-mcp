@@ -4,7 +4,8 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-10-01",
   "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
   "observability": { "enabled": true },
-  "routes": [{ "pattern": "uazapi.sling.digital", "custom_domain": true }],
+  // Para usar um domínio próprio: npx wrangler deploy --domain mcp.seudominio.com
   "vars": { "EXTRA_ALLOWED_HOSTS": "" }
 }

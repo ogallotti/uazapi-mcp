@@ -8,7 +8,7 @@ interface Env {
   EXTRA_ALLOWED_HOSTS?: string;
 }
 
-const VERSION = '0.1.0';
+const VERSION = '0.2.0';
 const SUBDOMAIN = /^[a-z0-9][a-z0-9-]{0,62}$/;
 
 const INSTRUCTIONS = `Opera o WhatsApp de uma única instância Uazapi.
@@ -52,10 +52,17 @@ function buildServer(ctx: McpRequestContext, env: Env) {
   return server;
 }
 
+// Outside Workers (Bun, Deno, Node) the second fetch argument is not an env, so fall back to process variables.
+function resolveEnv(env: Partial<Env> | undefined): Env {
+  const proc = (globalThis as { process?: { env: Record<string, string | undefined> } }).process;
+  return { EXTRA_ALLOWED_HOSTS: env?.EXTRA_ALLOWED_HOSTS ?? proc?.env.EXTRA_ALLOWED_HOSTS };
+}
+
 let mcp: ReturnType<typeof createMcpHandler> | undefined;
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, rawEnv?: Env): Promise<Response> {
+    const env = resolveEnv(rawEnv);
     const { pathname } = new URL(request.url);
     if (pathname === '/' || pathname === '/health') {
       return Response.json({

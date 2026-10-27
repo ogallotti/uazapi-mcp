@@ -14,6 +14,7 @@ export class UazapiError extends Error {
 
 const SECRET_KEYS = new Set(['token', 'admintoken', 'openai_apikey']);
 const MAX_GET_ATTEMPTS = 3;
+const TIMEOUT_MS = 30_000;
 
 export interface CallInput {
   method: string;
@@ -40,7 +41,14 @@ export async function callUazapi(creds: UazapiCredentials, input: CallInput): Pr
   // Only reads are retried: a timed-out send may already have been delivered.
   const attempts = input.method === 'GET' ? MAX_GET_ATTEMPTS : 1;
   for (let attempt = 1; ; attempt++) {
-    const res = await fetch(url, init);
+    let res: Response;
+    try {
+      res = await fetch(url, { ...init, signal: AbortSignal.timeout(TIMEOUT_MS) });
+    } catch (err) {
+      if (!(err instanceof Error && err.name === 'TimeoutError')) throw err;
+      const hint = input.method === 'GET' ? '' : ' A ação pode ter sido executada: confira antes de repetir.';
+      throw new Error(`Uazapi não respondeu em ${TIMEOUT_MS / 1000}s.${hint}`);
+    }
     const text = await res.text();
     let parsed: unknown = text;
     try {

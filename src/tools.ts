@@ -96,15 +96,19 @@ function clip(value: unknown): unknown {
   return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, clip(v)]));
 }
 
-/** Drops trailing list items until the payload fits, so content and structuredContent stay identical and bounded. */
+/** Keeps the leading list items that fit, so content and structuredContent stay identical and bounded. */
 function fitList(out: Obj, key: string): Obj {
-  const items = [...(out[key] as unknown[])];
-  let fitted: Obj = { ...out, [key]: items };
-  while (items.length > 1 && JSON.stringify(fitted).length > MAX_TEXT) {
-    items.pop();
-    fitted = { ...out, [key]: items, truncated: `Lista cortada em ${items.length} itens pelo tamanho; reduza limit.` };
+  const items = out[key] as unknown[];
+  // Reserve room for the envelope and the truncation note, then add items while they fit.
+  let budget = MAX_TEXT - JSON.stringify({ ...out, [key]: [] }).length - 120;
+  let kept = 0;
+  for (const item of items) {
+    budget -= JSON.stringify(item).length + 1;
+    if (budget < 0 && kept > 0) break;
+    kept++;
   }
-  return fitted;
+  if (kept === items.length) return out;
+  return { ...out, [key]: items.slice(0, kept), truncated: `Lista cortada em ${kept} itens pelo tamanho; reduza limit.` };
 }
 
 function textResult(value: unknown, structured?: Obj): CallToolResult {
@@ -139,6 +143,17 @@ function qrImage(qrcode: unknown) {
 
 function snake(id: string) {
   return id.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase();
+}
+
+const schemaCache = new Map<string, ReturnType<typeof fromJsonSchema<Obj>>>();
+
+function inputSchemaFor(op: Operation) {
+  let schema = schemaCache.get(op.id);
+  if (!schema) {
+    schema = fromJsonSchema<Obj>(op.inputSchema as Parameters<typeof fromJsonSchema>[0]);
+    schemaCache.set(op.id, schema);
+  }
+  return schema;
 }
 
 function annotationsFor(op: Operation) {
@@ -327,7 +342,7 @@ export function registerTools(server: McpServer, creds: UazapiCredentials | unde
         unread_only: z.boolean().optional().describe('Só conversas com mensagens não lidas.'),
         awaiting_reply: z.boolean().optional().describe('Só conversas em que o contato espera resposta.'),
         groups: z.boolean().optional().describe('true: só grupos; false: só contatos individuais.'),
-        label: z.string().optional().describe('ID da etiqueta (veja list_labels no catálogo).'),
+        label: z.string().optional().describe('ID da etiqueta (liste com a operação listLabels).'),
         limit: z.number().int().min(1).max(200).default(20),
         offset: z.number().int().min(0).default(0),
       }),
@@ -446,7 +461,7 @@ export function registerTools(server: McpServer, creds: UazapiCredentials | unde
         {
           title: op.summary,
           description: `${op.summary}. Categoria: ${op.tag}.\n\n${op.description}`.slice(0, 2000),
-          inputSchema: fromJsonSchema<Obj>(op.inputSchema as Parameters<typeof fromJsonSchema>[0]),
+          inputSchema: inputSchemaFor(op),
           annotations: annotationsFor(op),
         },
         (args: Obj) => runOperation(creds, op, args ?? {}),
