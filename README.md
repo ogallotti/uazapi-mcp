@@ -19,8 +19,8 @@ Instale o servidor MCP do Uazapi do repositório https://github.com/ogallotti/ua
    Se eu quiser um domínio próprio, pergunte qual e publique com `npx wrangler deploy --domain <dominio>` (o domínio precisa estar na mesma conta Cloudflare).
 4. Rode `MCP_URL=<url>/teste/mcp npm run smoke` e confirme "all checks passed".
 5. Pergunte a Server URL da minha instância Uazapi (ex.: https://minhaempresa.uazapi.com). O <subdominio> é a parte antes de .uazapi.com.
-   Se eu quiser testar com a instância real, peça para eu definir o token numa variável de ambiente (nunca no chat) e rode
-   `MCP_URL=<url>/<subdominio>/mcp SMOKE_UAZAPI_TOKEN=$UAZAPI_INSTANCE_TOKEN npm run smoke` (só faz leituras).
+   Se eu quiser testar com a instância real, nunca peça o token no chat: me peça para rodar no terminal
+   `read -rs SMOKE_UAZAPI_TOKEN && export SMOKE_UAZAPI_TOKEN && MCP_URL=<url>/<subdominio>/mcp npm run smoke` (só faz leituras).
 6. Me entregue a configuração final: URL `<url>/<subdominio>/mcp` e header `Authorization: Bearer <token da instância>`, com o passo a passo para o meu cliente MCP (seção "Conectar" do README).
 
 Se eu não usar Cloudflare, siga a seção "Outros runtimes" do README.
@@ -67,7 +67,9 @@ Também dá para usar `POST /mcp` com o header `x-uazapi-server: <subdominio>`. 
 ### Claude Code
 
 ```bash
-claude mcp add --transport http uazapi https://<seu-servidor>/<subdominio>/mcp --header "Authorization: Bearer <token>"
+read -rs UAZAPI_TOKEN   # cole o token; ele não aparece na tela nem fica no histórico
+claude mcp add --transport http uazapi https://<seu-servidor>/<subdominio>/mcp --header "Authorization: Bearer $UAZAPI_TOKEN"
+unset UAZAPI_TOKEN
 ```
 
 ### Cursor, Claude Desktop e clientes com JSON
@@ -154,7 +156,8 @@ npm install
 npm run catalog      # regenera src/catalog.json a partir do OpenAPI publicado
 npm run typecheck
 npm run dev          # wrangler dev em http://localhost:8787
-MCP_URL=http://localhost:8787/<subdominio>/mcp SMOKE_UAZAPI_TOKEN=<token> npm run smoke
+read -rs SMOKE_UAZAPI_TOKEN && export SMOKE_UAZAPI_TOKEN   # opcional: testa leituras na instância real
+MCP_URL=http://localhost:8787/<subdominio>/mcp npm run smoke
 ```
 
 O smoke test usa um cliente da spec 2026-07-28 e outro de 2025. Sem `SMOKE_UAZAPI_TOKEN`, não chama o Uazapi; com ele, faz só leituras.

@@ -41,15 +41,18 @@ export async function callUazapi(creds: UazapiCredentials, input: CallInput): Pr
   // Only reads are retried: a timed-out send may already have been delivered.
   const attempts = input.method === 'GET' ? MAX_GET_ATTEMPTS : 1;
   for (let attempt = 1; ; attempt++) {
+    // The signal also covers reading the body, so a send that stalls mid-response still gets the warning.
+    const signal = AbortSignal.timeout(TIMEOUT_MS);
     let res: Response;
+    let text: string;
     try {
-      res = await fetch(url, { ...init, signal: AbortSignal.timeout(TIMEOUT_MS) });
+      res = await fetch(url, { ...init, signal });
+      text = await res.text();
     } catch (err) {
-      if (!(err instanceof Error && err.name === 'TimeoutError')) throw err;
+      if (!signal.aborted) throw err;
       const hint = input.method === 'GET' ? '' : ' A ação pode ter sido executada: confira antes de repetir.';
       throw new Error(`Uazapi não respondeu em ${TIMEOUT_MS / 1000}s.${hint}`);
     }
-    const text = await res.text();
     let parsed: unknown = text;
     try {
       parsed = text ? JSON.parse(text) : null;
